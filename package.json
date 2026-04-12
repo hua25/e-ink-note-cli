@@ -1,0 +1,25 @@
+{
+  "name": "enote-cli",
+  "version": "0.1.0",
+  "description": "CLI tool for managing e-ink display devices via Zectrix cloud platform",
+  "main": "dist/index.js",
+  "bin": {
+    "enote": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["e-ink", "zectrix", "cli"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2"
+  }
+}
