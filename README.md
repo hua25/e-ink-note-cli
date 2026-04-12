@@ -95,7 +95,7 @@ enote todos delete 1
 }
 ```
 
-`devices` 数组第一项为默认设备。
+`devices` 数组中的设备数量决定 `--device` 的默认行为（见下方说明）。
 
 ### API Key 优先级
 
@@ -130,7 +130,7 @@ enote todos create --title <title>
                    [--repeat-month 1-12]
                    [--repeat-day 1-31]
                    [--priority 0|1|2]
-                   [--device <deviceId>]
+                   [--device <deviceId>]   # 不传时：0台→个人待办，1台→自动绑定，多台→广播
 
 enote todos update <id> [--title <title>] [--desc <text>]
                         [--due-date <date>] [--due-time <time>] [--priority 0|1|2]
@@ -159,6 +159,8 @@ enote display image [--device <deviceId>] <file...>
 # 删除页面（不传 --page 则清空全部）
 enote display delete [--device <deviceId>] [--page <1-5>]
 ```
+
+`--device` 不传时：配置 0 台→报错，1 台→自动使用，多台→**广播到所有设备**（返回数组）。
 
 `--page` 指定 1–5 时内容持久化存储，不指定则临时显示（断电消失）。
 

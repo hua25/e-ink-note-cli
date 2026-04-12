@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { apiGet, apiPost, apiPut, apiDelete } from "../client.js";
-import { getApiKey, requireDefaultDevice, printSuccess } from "../config.js";
+import { getApiKey, resolveDevices, printSuccess } from "../config.js";
 
 interface Todo {
   id: number;
@@ -51,21 +51,30 @@ export function registerTodos(program: Command): void {
     .option("--repeat-month <1-12>", "Month for yearly repeat")
     .option("--repeat-day <1-31>", "Day for monthly/yearly repeat")
     .option("--priority <0|1|2>", "Priority: 0=normal, 1=important, 2=urgent")
-    .option("--device <deviceId>", "Bind to device (omit for personal todo)")
+    .option("--device <deviceId>", "Bind to device — repeatable; defaults to all configured devices if any")
     .action(async (opts) => {
       const apiKey = getApiKey(opts.apiKey);
-      const body: Record<string, unknown> = { title: opts.title };
-      if (opts.desc) body.description = opts.desc;
-      if (opts.dueDate) body.dueDate = opts.dueDate;
-      if (opts.dueTime) body.dueTime = opts.dueTime;
-      if (opts.repeat) body.repeatType = opts.repeat;
-      if (opts.repeatWeekday !== undefined) body.repeatWeekday = Number(opts.repeatWeekday);
-      if (opts.repeatMonth !== undefined) body.repeatMonth = Number(opts.repeatMonth);
-      if (opts.repeatDay !== undefined) body.repeatDay = Number(opts.repeatDay);
-      if (opts.priority !== undefined) body.priority = Number(opts.priority);
-      if (opts.device) body.deviceId = opts.device;
-      const data = await apiPost<Todo>("/todos", apiKey, body);
-      printSuccess(data);
+      const deviceIds = resolveDevices(opts.device ? [opts.device] : undefined);
+      const base: Record<string, unknown> = { title: opts.title };
+      if (opts.desc) base.description = opts.desc;
+      if (opts.dueDate) base.dueDate = opts.dueDate;
+      if (opts.dueTime) base.dueTime = opts.dueTime;
+      if (opts.repeat) base.repeatType = opts.repeat;
+      if (opts.repeatWeekday !== undefined) base.repeatWeekday = Number(opts.repeatWeekday);
+      if (opts.repeatMonth !== undefined) base.repeatMonth = Number(opts.repeatMonth);
+      if (opts.repeatDay !== undefined) base.repeatDay = Number(opts.repeatDay);
+      if (opts.priority !== undefined) base.priority = Number(opts.priority);
+
+      if (deviceIds.length === 0) {
+        // No devices — create a personal todo without deviceId
+        const data = await apiPost<Todo>("/todos", apiKey, base);
+        printSuccess(data);
+      } else {
+        const results = await Promise.all(
+          deviceIds.map((deviceId) => apiPost<Todo>("/todos", apiKey, { ...base, deviceId }))
+        );
+        printSuccess(deviceIds.length === 1 ? results[0] : results);
+      }
     });
 
   // update

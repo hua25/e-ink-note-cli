@@ -52,15 +52,27 @@ enote display delete --page 1       # 删除第 1 页
 enote display delete                # 清空全部页面（不传 --page）
 ```
 
-### 多设备推送
+### 设备选择规则
 
-若需推送到多台设备，对每台设备分别执行命令：
+`--device` 的行为取决于配置文件中的设备数量：
+
+| 配置设备数 | 不传 `--device` | 传 `--device` |
+|-----------|----------------|--------------|
+| 0 台 | 命令报错（需先 `enote init`） | 使用指定设备 |
+| 1 台 | 自动使用该设备 | 使用指定设备 |
+| 多台 | **向所有设备广播** | 仅推送到指定设备 |
+
+多台设备时，若只想推送到某一台：
 ```bash
 enote display text --device AA:BB:CC:DD:EE:FF --text "内容"
-enote display text --device 11:22:33:44:55:66 --text "内容"
 ```
 
-不传 `--device` 时，默认使用配置文件中第一台设备。
+多台设备时，广播到全部（不传 `--device`）：
+```bash
+enote display text --text "内容"
+```
+
+广播时返回数组，单设备时返回单条对象。
 
 ## 输出处理
 

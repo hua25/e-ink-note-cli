@@ -45,22 +45,40 @@ export function getApiKey(flagValue?: string): string {
   process.exit(1);
 }
 
-export function getDefaultDevice(flagValue?: string): string | undefined {
-  if (flagValue) return flagValue;
+/**
+ * Resolve target device IDs based on config and optional CLI flags.
+ *
+ * Rules:
+ *  - 0 devices in config → return [] (caller decides if that's OK)
+ *  - 1 device in config  → return that device (flag overrides it)
+ *  - N devices in config → return flagValues if provided, else all devices
+ */
+export function resolveDevices(flagValues?: string[]): string[] {
   const config = loadConfig();
-  if (config.devices && config.devices.length > 0) {
-    return config.devices[0].deviceId;
+  const configured = config.devices ?? [];
+
+  if (configured.length === 0) {
+    // No devices configured — honour explicit flags, otherwise empty
+    return flagValues && flagValues.length > 0 ? flagValues : [];
   }
-  return undefined;
+
+  if (configured.length === 1) {
+    // Single device — flag overrides, otherwise use the only device
+    return flagValues && flagValues.length > 0 ? flagValues : [configured[0].deviceId];
+  }
+
+  // Multiple devices — use flags if given, otherwise fan out to all
+  if (flagValues && flagValues.length > 0) return flagValues;
+  return configured.map((d) => d.deviceId);
 }
 
-export function requireDefaultDevice(flagValue?: string): string {
-  const deviceId = getDefaultDevice(flagValue);
-  if (!deviceId) {
+export function requireDevices(flagValues?: string[]): string[] {
+  const devices = resolveDevices(flagValues);
+  if (devices.length === 0) {
     printError("No device configured. Run 'enote init' to set up your devices.");
     process.exit(1);
   }
-  return deviceId;
+  return devices;
 }
 
 // ── Output helpers ──────────────────────────────────────────────────────────
