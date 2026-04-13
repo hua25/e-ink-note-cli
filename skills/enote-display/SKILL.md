@@ -1,4 +1,7 @@
-# enote-display
+---
+name: enote-display
+description: "Push content to e-ink display devices: plain text, structured title+body, or local images. Supports page slots 1-5 for persistent storage. Use when user wants to display something on their Zectrix e-ink screen."
+---
 
 ## 用途
 
@@ -65,11 +68,6 @@ enote display delete                # 清空全部页面（不传 --page）
 多台设备时，若只想推送到某一台：
 ```bash
 enote display text --device AA:BB:CC:DD:EE:FF --text "内容"
-```
-
-多台设备时，广播到全部（不传 `--device`）：
-```bash
-enote display text --text "内容"
 ```
 
 广播时返回数组，单设备时返回单条对象。

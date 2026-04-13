@@ -1,4 +1,7 @@
-# enote-init
+---
+name: enote-init
+description: "Configure enote CLI: enter API Key, fetch device list, select devices to bind, write ~/.enote/config.json. Use when user wants to set up enote for the first time or re-configure it."
+---
 
 ## 用途
 

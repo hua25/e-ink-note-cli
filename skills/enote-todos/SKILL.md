@@ -1,4 +1,7 @@
-# enote-todos
+---
+name: enote-todos
+description: "Manage todos on e-ink display devices: list, create, update, complete, delete. Use when user wants to add, view, or manage todo items on their Zectrix device."
+---
 
 ## 用途
 
