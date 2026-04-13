@@ -186,15 +186,17 @@ enote display delete [--device <deviceId>] [--page <1-5>]
 
 项目内置三个通用 Skill 文档（`skills/` 目录），供 Claude Code、Cursor、Copilot 等 AI Agent 直接调用：
 
-| Skill 文件 | 用途 |
+| Skill 目录 | 用途 |
 |-----------|------|
-| `skills/enote-init.md` | 初始化配置流程 |
-| `skills/enote-todos.md` | 待办事项管理 |
-| `skills/enote-display.md` | 推送内容到屏幕 |
+| `skills/enote-init/` | 初始化配置流程 |
+| `skills/enote-todos/` | 待办事项管理 |
+| `skills/enote-display/` | 推送内容到屏幕 |
 
-**Claude Code** 用户：`.claude/skills/` 目录已通过软链接引用上述文件，可直接使用 `/enote-init`、`/enote-todos`、`/enote-display` 命令。
+每个 Skill 目录下包含 `SKILL.md`，带有标准 frontmatter（`name` / `description`）。
 
-**其他 Agent**：将 `skills/` 目录下的 Markdown 文件引入对应平台的规则配置中即可（如 Cursor 的 `.cursor/rules/`、Copilot 的 `.github/copilot-instructions.md`）。
+**Claude Code** 用户：`.claude/skills/` 目录已通过软链接引用上述目录，可直接使用 `/enote-init`、`/enote-todos`、`/enote-display` 命令。
+
+**其他 Agent**：将 `skills/<name>/SKILL.md` 引入对应平台的规则配置中即可（如 Cursor 的 `.cursor/rules/`、Copilot 的 `.github/copilot-instructions.md`）。
 
 ---
 
