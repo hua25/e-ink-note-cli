@@ -19,7 +19,7 @@ enote todos list [--status 0|1] [--device <deviceId>]
 enote todos create --title <title> [--desc <text>] [--due-date yyyy-MM-dd] [--due-time HH:mm]
                    [--repeat daily|weekly|monthly|yearly|none]
                    [--repeat-weekday 0-6] [--repeat-month 1-12] [--repeat-day 1-31]
-                   [--priority 0|1|2] [--device <deviceId>]
+                   [--priority 0|1|2] [--device <deviceId...>]
 enote todos update <id> [--title <title>] [--desc <text>] [--due-date <date>] [--due-time <time>] [--priority 0|1|2]
 enote todos complete <id>
 enote todos delete <id>
@@ -75,6 +75,11 @@ enote todos create --title "买牛奶" --device AA:BB:CC:DD:EE:FF
 
 多台设备广播时返回数组，单设备时返回单条对象。
 
+多台设备时，也可指定多台（非全部）：
+```bash
+enote todos create --title "买牛奶" --device AA:BB:CC:DD:EE:FF --device 11:22:33:44:55:66
+```
+
 ### 筛选列表
 
 ```bash
@@ -86,7 +91,9 @@ enote todos list --device <id>    # 指定设备的待办
 
 ## 输出处理
 
-**list 返回数组**：
+CLI 默认输出人类可读格式。如需 JSON 输出，加全局 `--json` 标志。
+
+**list 返回数组（JSON 模式）**：
 ```json
 {
   "ok": true,

@@ -31,28 +31,35 @@ Three functional areas:
 
 All responses use `{ "code": 0, "data": ... }` on success.
 
-## Notes
+## Architecture
 
-- No implementation exists yet — this is a greenfield project.
-- CLI binary name: `enote`. npm package name: `enote-cli`.
-- Tech stack chosen: TypeScript (Node.js 18+), commander, native fetch, tsup for bundling.
-- Config file: `~/.enote/config.json` (JSON). API key env var: `ENOTE_API_KEY`.
+**Error handling:** Library-layer code (`src/client.ts`, `src/config.ts`) throws typed errors (`ApiError`, `ConfigError`) instead of calling `process.exit`. Only the top-level CLI handler in `src/index.ts` and command-layer validation call `process.exit`. This makes the library testable and reusable.
+
+**Output:** Default output is human-readable (tables for lists, key-value for objects). A global `--json` flag switches to raw JSON for programmatic consumers (scripts, AI agents).
 
 ## Development Commands
 
 ```bash
-npm run build   # compile src/ → dist/index.js (single CJS bundle with shebang)
-npm run dev     # watch mode
+npm run build      # compile src/ → dist/index.js (single CJS bundle with shebang)
+npm run dev        # watch mode
+npm test           # run tests (vitest)
+npm test:watch     # interactive test watch
 node dist/index.js --help   # run locally without installing
-npm link        # install globally as `enote` for local testing
+npm link           # install globally as `enote` for local testing
 ```
 
 ## Code Structure
 
-- `src/config.ts` — config read/write (`~/.enote/config.json`), API key resolution, `printSuccess`/`printError` output helpers
-- `src/client.ts` — fetch wrapper for all HTTP verbs; always outputs JSON to stdout/stderr and calls `process.exit(1)` on failure
+- `src/errors.ts` — typed error classes (`ApiError`, `ConfigError`) thrown by library layer and caught by CLI entry point
+- `src/types.ts` — typed request body interfaces (CreateTodoRequest, UpdateTodoRequest, TextDisplayRequest, StructuredTextRequest)
+- `src/config.ts` — config read/write (`~/.enote/config.json` with 0o600 permissions), API key resolution, device resolution
+- `src/client.ts` — fetch wrapper for all HTTP verbs; throws `ApiError` on failure; 30s request timeout via AbortController
+- `src/output.ts` — dual-mode output: human-readable tables/key-value by default, raw JSON with `--json` flag
+- `src/utils.ts` — shared utilities (`fanOut` with `Promise.allSettled` for partial-failure handling across multiple devices)
+- `src/index.ts` — CLI entry point: global `--json` / `--api-key` options, top-level error handler, version from package.json
 - `src/commands/init.ts` — two-phase init: first call returns device list, second call (with `--select`) writes config
 - `src/commands/devices.ts` — `devices list`
-- `src/commands/todos.ts` — full CRUD for todos
-- `src/commands/display.ts` — text / structured / image / delete push commands
+- `src/commands/todos.ts` — full CRUD for todos; `--device` is repeatable on `create`; client-side enum validation for repeatType/priority
+- `src/commands/display.ts` — text / structured / image / delete push commands; `--device` is repeatable; `--no-dither` boolean flag; files read once and cached across multi-device fan-out
+- `tests/` — vitest unit tests for config, client, utils
 - `skills/` — agent-agnostic Markdown skill docs; symlinked into `.claude/skills/`

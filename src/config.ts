@@ -1,9 +1,19 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { ConfigError } from "./errors.js";
 
 const CONFIG_DIR = path.join(os.homedir(), ".enote");
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
+
+// Allow tests to override config paths
+let _configFile = CONFIG_FILE;
+let _configDir = CONFIG_DIR;
+
+export function __setConfigPaths(dir: string, file: string): void {
+  _configDir = dir;
+  _configFile = file;
+}
 
 export interface DeviceEntry {
   deviceId: string;
@@ -16,24 +26,26 @@ export interface Config {
 }
 
 export function getConfigPath(): string {
-  return CONFIG_FILE;
+  return _configFile;
 }
 
 export function loadConfig(): Partial<Config> {
-  if (!fs.existsSync(CONFIG_FILE)) return {};
+  if (!fs.existsSync(_configFile)) return {};
   try {
-    const raw = fs.readFileSync(CONFIG_FILE, "utf-8");
+    const raw = fs.readFileSync(_configFile, "utf-8");
     return JSON.parse(raw) as Partial<Config>;
   } catch {
+    console.error(`Warning: ${_configFile} is corrupted, ignoring.`);
     return {};
   }
 }
 
 export function saveConfig(config: Partial<Config>): void {
-  if (!fs.existsSync(CONFIG_DIR)) {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  if (!fs.existsSync(_configDir)) {
+    fs.mkdirSync(_configDir, { recursive: true });
   }
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+  fs.writeFileSync(_configFile, JSON.stringify(config, null, 2), "utf-8");
+  fs.chmodSync(_configFile, 0o600);
 }
 
 export function getApiKey(flagValue?: string): string {
@@ -41,8 +53,9 @@ export function getApiKey(flagValue?: string): string {
   if (process.env.ENOTE_API_KEY) return process.env.ENOTE_API_KEY;
   const config = loadConfig();
   if (config.api_key) return config.api_key;
-  printError("API key not found. Set ENOTE_API_KEY env var or run 'enote init'.");
-  process.exit(1);
+  throw new ConfigError(
+    "API key not found. Set ENOTE_API_KEY env var or run 'enote init'.",
+  );
 }
 
 /**
@@ -58,16 +71,13 @@ export function resolveDevices(flagValues?: string[]): string[] {
   const configured = config.devices ?? [];
 
   if (configured.length === 0) {
-    // No devices configured — honour explicit flags, otherwise empty
     return flagValues && flagValues.length > 0 ? flagValues : [];
   }
 
   if (configured.length === 1) {
-    // Single device — flag overrides, otherwise use the only device
     return flagValues && flagValues.length > 0 ? flagValues : [configured[0].deviceId];
   }
 
-  // Multiple devices — use flags if given, otherwise fan out to all
   if (flagValues && flagValues.length > 0) return flagValues;
   return configured.map((d) => d.deviceId);
 }
@@ -75,18 +85,13 @@ export function resolveDevices(flagValues?: string[]): string[] {
 export function requireDevices(flagValues?: string[]): string[] {
   const devices = resolveDevices(flagValues);
   if (devices.length === 0) {
-    printError("No device configured. Run 'enote init' to set up your devices.");
-    process.exit(1);
+    throw new ConfigError("No device configured. Run 'enote init' to set up your devices.");
   }
   return devices;
 }
 
-// ── Output helpers ──────────────────────────────────────────────────────────
+// ── Output helpers (for JSON mode / backward compat) ─────────────────────────
 
 export function printSuccess(data: unknown): void {
   console.log(JSON.stringify({ ok: true, data }));
-}
-
-export function printError(message: string, code?: number): void {
-  console.error(JSON.stringify({ ok: false, error: message, ...(code !== undefined ? { code } : {}) }));
 }

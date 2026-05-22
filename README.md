@@ -1,7 +1,7 @@
 # enote-cli
 
 > 电子墨水屏设备管理 CLI 工具，基于 [Zectrix](https://cloud.zectrix.com) 云平台 API。
-> 专为 AI Agent 调用设计，所有输出均为 JSON 格式。
+> 默认输出人类可读格式，通过 `--json` 标志可切换为 JSON 输出（适合 AI Agent / 脚本调用）。
 
 ---
 
@@ -130,7 +130,7 @@ enote todos create --title <title>
                    [--repeat-month 1-12]
                    [--repeat-day 1-31]
                    [--priority 0|1|2]
-                   [--device <deviceId>]   # 不传时：0台→个人待办，1台→自动绑定，多台→广播
+                   [--device <deviceId...>]   # 可重复，不传时：0台→个人待办，1台→自动绑定，多台→广播
 
 enote todos update <id> [--title <title>] [--desc <text>]
                         [--due-date <date>] [--due-time <time>] [--priority 0|1|2]
@@ -145,22 +145,22 @@ enote todos delete <id>
 
 ```bash
 # 纯文字（最多 5000 字符）
-enote display text [--device <deviceId>] --text <content>
+enote display text [--device <deviceId...>] --text <content>
                    [--font-size 12-48] [--page 1-5]
 
 # 标题 + 正文（title ≤ 200 字，body ≤ 5000 字，至少填一项）
-enote display structured [--device <deviceId>]
+enote display structured [--device <deviceId...>]
                          [--title <text>] [--body <text>] [--page 1-5]
 
 # 图片（最多 5 张，每张 ≤ 2MB）
-enote display image [--device <deviceId>] <file...>
-                    [--dither true|false] [--page 1-5]
+enote display image [--device <deviceId...>] <file...>
+                    [--no-dither] [--page 1-5]
 
 # 删除页面（不传 --page 则清空全部）
-enote display delete [--device <deviceId>] [--page <1-5>]
+enote display delete [--device <deviceId...>] [--page <1-5>]
 ```
 
-`--device` 不传时：配置 0 台→报错，1 台→自动使用，多台→**广播到所有设备**（返回数组）。
+`--device` 不传时：配置 0 台→报错，1 台→自动使用，多台→**广播到所有设备**（返回数组）。可重复传入以指定多台设备。
 
 `--page` 指定 1–5 时内容持久化存储，不指定则临时显示（断电消失）。
 
@@ -168,17 +168,24 @@ enote display delete [--device <deviceId>] [--page <1-5>]
 
 ## 输出格式
 
-所有命令输出纯 JSON，适合 AI Agent 程序化解析：
+默认输出人类可读格式（列表用表格，单条用 key-value）。通过全局 `--json` 标志可切换为 JSON 输出：
 
-**成功**（stdout，exit 0）：
+```bash
+enote todos list            # 表格输出
+enote todos list --json     # JSON 输出
+```
+
+**成功（JSON 模式，stdout，exit 0）**：
 ```json
 { "ok": true, "data": { ... } }
 ```
 
-**失败**（stderr，exit 1）：
+**失败（stderr，exit 1）**：
 ```json
 { "ok": false, "error": "错误描述", "code": 1001 }
 ```
+
+JSON 模式下，所有输出为标准化的 `{"ok": true/false, ...}` 格式，适合 AI Agent 程序化解析。
 
 ---
 
@@ -209,9 +216,12 @@ npm install
 # 编译
 npm run build
 
-# 监听模式（修改源码后自动重新编译）
+# 监听模式
 npm run dev
 
-# 本地调试（无需全局安装）
+# 运行测试
+npm test
+
+# 本地调试
 node dist/index.js --help
 ```

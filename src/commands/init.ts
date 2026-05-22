@@ -1,14 +1,7 @@
 import { Command } from "commander";
 import { apiGet } from "../client.js";
-import {
-  getApiKey,
-  loadConfig,
-  saveConfig,
-  getConfigPath,
-  printSuccess,
-  printError,
-  DeviceEntry,
-} from "../config.js";
+import { getApiKey, loadConfig, saveConfig, getConfigPath, DeviceEntry } from "../config.js";
+import { outputResult, printError } from "../output.js";
 
 interface ApiDevice {
   deviceId: string;
@@ -20,16 +13,16 @@ export function registerInit(program: Command): void {
   program
     .command("init")
     .description("Initialize enote: authenticate and select devices")
-    .option("--api-key <key>", "Zectrix API key")
     .option("--select <deviceIds>", "Comma-separated device IDs to save (skip to preview devices)")
     .action(async (opts) => {
-      const apiKey = getApiKey(opts.apiKey);
+      const json = program.opts().json ?? false;
+      const apiKey = getApiKey(program.opts().apiKey);
 
       // Fetch device list
       const devices = await apiGet<ApiDevice[]>("/devices", apiKey);
 
       if (devices.length === 0) {
-        printError("No devices found on this account.");
+        printError("No devices found on this account.", undefined, json);
         process.exit(1);
       }
 
@@ -38,21 +31,23 @@ export function registerInit(program: Command): void {
         const selected: DeviceEntry[] = [{ deviceId: devices[0].deviceId, alias: devices[0].alias }];
         const existing = loadConfig();
         saveConfig({ ...existing, api_key: apiKey, devices: selected });
-        printSuccess({
-          configured: true,
-          config_path: getConfigPath(),
-          devices: selected,
-        });
+        outputResult(
+          { configured: true, config_path: getConfigPath(), devices: selected },
+          json,
+        );
         return;
       }
 
       // Multiple devices, no --select yet: return list for agent/user to choose
       if (!opts.select) {
-        printSuccess({
-          configured: false,
-          message: "Multiple devices found. Re-run with --select <deviceId,...> to save configuration.",
-          devices: devices.map((d) => ({ deviceId: d.deviceId, alias: d.alias })),
-        });
+        outputResult(
+          {
+            configured: false,
+            message: "Multiple devices found. Re-run with --select <deviceId,...> to save configuration.",
+            devices: devices.map((d) => ({ deviceId: d.deviceId, alias: d.alias })),
+          },
+          json,
+        );
         return;
       }
 
@@ -61,7 +56,7 @@ export function registerInit(program: Command): void {
       const deviceMap = new Map(devices.map((d) => [d.deviceId, d]));
       const unknown = selectedIds.filter((id: string) => !deviceMap.has(id));
       if (unknown.length > 0) {
-        printError(`Unknown device ID(s): ${unknown.join(", ")}`);
+        printError(`Unknown device ID(s): ${unknown.join(", ")}`, undefined, json);
         process.exit(1);
       }
 
@@ -73,10 +68,9 @@ export function registerInit(program: Command): void {
       const existing = loadConfig();
       saveConfig({ ...existing, api_key: apiKey, devices: selected });
 
-      printSuccess({
-        configured: true,
-        config_path: getConfigPath(),
-        devices: selected,
-      });
+      outputResult(
+        { configured: true, config_path: getConfigPath(), devices: selected },
+        json,
+      );
     });
 }

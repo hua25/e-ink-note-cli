@@ -61,7 +61,9 @@ enote init --api-key <key> --select "AA:BB:CC:DD:EE:FF,11:22:33:44:55:66"
 
 ## 输出处理
 
-**单设备，自动完成**：
+CLI 默认输出人类可读格式。如需 JSON 输出，加全局 `--json` 标志。
+
+**单设备，自动完成（JSON 模式）**：
 ```json
 {
   "ok": true,

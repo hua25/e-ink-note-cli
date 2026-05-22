@@ -1,6 +1,7 @@
-import { printError } from "./config.js";
+import { ApiError } from "./errors.js";
 
 const BASE_URL = "https://cloud.zectrix.com/open/v1";
+const TIMEOUT_MS = 30_000;
 
 interface ApiResponse<T = unknown> {
   code: number;
@@ -26,7 +27,7 @@ export async function apiPost<T>(path: string, apiKey: string, body: unknown): P
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     },
-    apiKey
+    apiKey,
   );
 }
 
@@ -42,7 +43,7 @@ export async function apiPut<T>(path: string, apiKey: string, body?: unknown): P
       headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     },
-    apiKey
+    apiKey,
   );
 }
 
@@ -54,25 +55,30 @@ async function request<T>(url: string, init: RequestInit, apiKey: string): Promi
   const headers = new Headers(init.headers as HeadersInit | undefined);
   headers.set("X-API-Key", apiKey);
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
   let res: Response;
   try {
-    res = await fetch(url, { ...init, headers });
+    res = await fetch(url, { ...init, headers, signal: controller.signal });
   } catch (err) {
-    printError(`Network error: ${(err as Error).message}`);
-    process.exit(1);
+    if ((err as Error).name === "AbortError") {
+      throw new ApiError("Request timed out");
+    }
+    throw new ApiError(`Network error: ${(err as Error).message}`);
+  } finally {
+    clearTimeout(timer);
   }
 
   let json: ApiResponse<T>;
   try {
     json = (await res.json()) as ApiResponse<T>;
   } catch {
-    printError(`Invalid response from server (HTTP ${res.status})`);
-    process.exit(1);
+    throw new ApiError(`Invalid response from server (HTTP ${res.status})`, res.status);
   }
 
   if (!res.ok || json.code !== 0) {
-    printError(json.msg ?? `Request failed (HTTP ${res.status})`, json.code ?? res.status);
-    process.exit(1);
+    throw new ApiError(json.msg ?? `Request failed (HTTP ${res.status})`, json.code ?? res.status);
   }
 
   return json.data as T;

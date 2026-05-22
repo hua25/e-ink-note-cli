@@ -1,6 +1,9 @@
 import { Command } from "commander";
 import { apiGet, apiPost, apiPut, apiDelete } from "../client.js";
-import { getApiKey, resolveDevices, printSuccess } from "../config.js";
+import { getApiKey, resolveDevices } from "../config.js";
+import { outputResult, printError } from "../output.js";
+import { fanOut } from "../utils.js";
+import type { CreateTodoRequest, UpdateTodoRequest } from "../types.js";
 
 interface Todo {
   id: number;
@@ -18,6 +21,8 @@ interface Todo {
   updateDate: number;
 }
 
+const REPEAT_TYPES = ["daily", "weekly", "monthly", "yearly", "none"] as const;
+
 export function registerTodos(program: Command): void {
   const todos = program.command("todos").description("Manage todo items");
 
@@ -25,16 +30,16 @@ export function registerTodos(program: Command): void {
   todos
     .command("list")
     .description("List todo items")
-    .option("--api-key <key>", "API key override")
     .option("--status <0|1>", "Filter by status: 0=pending, 1=completed")
     .option("--device <deviceId>", "Filter by device ID")
     .action(async (opts) => {
-      const apiKey = getApiKey(opts.apiKey);
+      const json = program.opts().json ?? false;
+      const apiKey = getApiKey(program.opts().apiKey);
       const params: Record<string, string> = {};
       if (opts.status !== undefined) params.status = opts.status;
       if (opts.device) params.deviceId = opts.device;
       const data = await apiGet<Todo[]>("/todos", apiKey, params);
-      printSuccess(data);
+      outputResult(data, json);
     });
 
   // create
@@ -42,7 +47,6 @@ export function registerTodos(program: Command): void {
     .command("create")
     .description("Create a new todo item")
     .requiredOption("--title <title>", "Todo title")
-    .option("--api-key <key>", "API key override")
     .option("--desc <text>", "Description")
     .option("--due-date <yyyy-MM-dd>", "Due date")
     .option("--due-time <HH:mm>", "Due time")
@@ -51,11 +55,23 @@ export function registerTodos(program: Command): void {
     .option("--repeat-month <1-12>", "Month for yearly repeat")
     .option("--repeat-day <1-31>", "Day for monthly/yearly repeat")
     .option("--priority <0|1|2>", "Priority: 0=normal, 1=important, 2=urgent")
-    .option("--device <deviceId>", "Bind to device — repeatable; defaults to all configured devices if any")
+    .option("--device <deviceId...>", "Bind to device (repeatable; defaults to all configured devices if any)")
     .action(async (opts) => {
-      const apiKey = getApiKey(opts.apiKey);
-      const deviceIds = resolveDevices(opts.device ? [opts.device] : undefined);
-      const base: Record<string, unknown> = { title: opts.title };
+      const json = program.opts().json ?? false;
+      const apiKey = getApiKey(program.opts().apiKey);
+
+      // Validate enums
+      if (opts.repeat && !(REPEAT_TYPES as readonly string[]).includes(opts.repeat)) {
+        printError(`Invalid repeat type "${opts.repeat}". Valid: ${REPEAT_TYPES.join(", ")}`, undefined, json);
+        process.exit(1);
+      }
+      if (opts.priority !== undefined && ![0, 1, 2].includes(Number(opts.priority))) {
+        printError(`Invalid priority "${opts.priority}". Valid: 0, 1, 2`, undefined, json);
+        process.exit(1);
+      }
+
+      const deviceIds = resolveDevices(opts.device);
+      const base: CreateTodoRequest = { title: opts.title };
       if (opts.desc) base.description = opts.desc;
       if (opts.dueDate) base.dueDate = opts.dueDate;
       if (opts.dueTime) base.dueTime = opts.dueTime;
@@ -66,14 +82,16 @@ export function registerTodos(program: Command): void {
       if (opts.priority !== undefined) base.priority = Number(opts.priority);
 
       if (deviceIds.length === 0) {
-        // No devices — create a personal todo without deviceId
         const data = await apiPost<Todo>("/todos", apiKey, base);
-        printSuccess(data);
+        outputResult(data, json);
       } else {
-        const results = await Promise.all(
-          deviceIds.map((deviceId) => apiPost<Todo>("/todos", apiKey, { ...base, deviceId }))
+        const { success, failed } = await fanOut(deviceIds, (deviceId) =>
+          apiPost<Todo>("/todos", apiKey, { ...base, deviceId }),
         );
-        printSuccess(deviceIds.length === 1 ? results[0] : results);
+        outputResult(
+          deviceIds.length === 1 ? (success[deviceIds[0]] ?? failed[deviceIds[0]]) : { success, failed },
+          json,
+        );
       }
     });
 
@@ -81,43 +99,49 @@ export function registerTodos(program: Command): void {
   todos
     .command("update <id>")
     .description("Update a todo item")
-    .option("--api-key <key>", "API key override")
     .option("--title <title>", "New title")
     .option("--desc <text>", "New description")
     .option("--due-date <yyyy-MM-dd>", "New due date")
     .option("--due-time <HH:mm>", "New due time")
     .option("--priority <0|1|2>", "New priority")
     .action(async (id, opts) => {
-      const apiKey = getApiKey(opts.apiKey);
-      const body: Record<string, unknown> = {};
+      const json = program.opts().json ?? false;
+      const apiKey = getApiKey(program.opts().apiKey);
+
+      if (opts.priority !== undefined && ![0, 1, 2].includes(Number(opts.priority))) {
+        printError(`Invalid priority "${opts.priority}". Valid: 0, 1, 2`, undefined, json);
+        process.exit(1);
+      }
+
+      const body: UpdateTodoRequest = {};
       if (opts.title) body.title = opts.title;
       if (opts.desc) body.description = opts.desc;
       if (opts.dueDate) body.dueDate = opts.dueDate;
       if (opts.dueTime) body.dueTime = opts.dueTime;
       if (opts.priority !== undefined) body.priority = Number(opts.priority);
       const data = await apiPut<Todo>(`/todos/${id}`, apiKey, body);
-      printSuccess(data);
+      outputResult(data, json);
     });
 
   // complete
   todos
     .command("complete <id>")
     .description("Toggle todo completion status")
-    .option("--api-key <key>", "API key override")
     .action(async (id, opts) => {
-      const apiKey = getApiKey(opts.apiKey);
+      const json = program.opts().json ?? false;
+      const apiKey = getApiKey(program.opts().apiKey);
       const data = await apiPut<{ msg: string }>(`/todos/${id}/complete`, apiKey);
-      printSuccess(data);
+      outputResult(data, json);
     });
 
   // delete
   todos
     .command("delete <id>")
     .description("Delete a todo item")
-    .option("--api-key <key>", "API key override")
     .action(async (id, opts) => {
-      const apiKey = getApiKey(opts.apiKey);
+      const json = program.opts().json ?? false;
+      const apiKey = getApiKey(program.opts().apiKey);
       const data = await apiDelete<{ msg: string }>(`/todos/${id}`, apiKey);
-      printSuccess(data);
+      outputResult(data, json);
     });
 }

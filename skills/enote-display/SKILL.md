@@ -15,10 +15,10 @@ description: "Push content to e-ink display devices: plain text, structured titl
 ## 命令参考
 
 ```bash
-enote display text [--device <deviceId>] --text <content> [--font-size 12-48] [--page 1-5]
-enote display structured [--device <deviceId>] [--title <text>] [--body <text>] [--page 1-5]
-enote display image [--device <deviceId>] <file...> [--dither true|false] [--page 1-5]
-enote display delete [--device <deviceId>] [--page <id>]
+enote display text [--device <deviceId...>] --text <content> [--font-size 12-48] [--page 1-5]
+enote display structured [--device <deviceId...>] [--title <text>] [--body <text>] [--page 1-5]
+enote display image [--device <deviceId...>] <file...> [--no-dither] [--page 1-5]
+enote display delete [--device <deviceId...>] [--page <id>]
 ```
 
 ## 操作指南
@@ -70,11 +70,18 @@ enote display delete                # 清空全部页面（不传 --page）
 enote display text --device AA:BB:CC:DD:EE:FF --text "内容"
 ```
 
-广播时返回数组，单设备时返回单条对象。
+多台设备时，也可指定多台（非全部）：
+```bash
+enote display text --device AA:BB:CC:DD:EE:FF --device 11:22:33:44:55:66 --text "内容"
+```
+
+广播时返回数组（含 partial failure 信息），单设备时返回单条对象。
 
 ## 输出处理
 
-**推送成功**：
+CLI 默认输出人类可读格式。如需 JSON 输出，加全局 `--json` 标志。
+
+**推送成功（JSON 模式）**：
 ```json
 {
   "ok": true,
